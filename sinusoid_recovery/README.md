@@ -49,6 +49,77 @@ i.e., it is an **AR(2)** process. So in principle, only 2 past samples are neede
 
 Total trainable parameters: **~29K** — ~4 orders of magnitude smaller than a typical LLM.
 
+## Tokenization and embedding
+
+A key difference from standard LLM transformers: **there is no tokenizer**. The inputs are already continuous floating-point numbers (sample values like `0.823, -0.451, ...`). Each scalar sample *is* a "token" in the sense that it occupies one position in the sequence.
+
+### Standard GPT vs this model
+
+| Step | Standard GPT | This model |
+|---|---|---|
+| Input | Text string | Float array of samples |
+| Split | BPE tokenizer → int IDs | None — already numeric |
+| Lookup | `nn.Embedding(vocab_size, d)` | `nn.Linear(1, d)` |
+| Math | `E[token_id]` (row pick from table) | `W · x + b` (affine map) |
+| Learnable | Whole embedding table (`vocab × d`) | `W` (`d × 1`) + `b` (`d`) |
+
+### How scalars become embeddings
+
+From `ts_transformer.py`:
+
+```python
+self.input_proj = nn.Linear(1, cfg["emb_dim"])   # 1 → 32
+```
+
+Forward pass:
+```python
+x = x.unsqueeze(-1)              # (batch, 128)   → (batch, 128, 1)
+tok_embeds = self.input_proj(x)  # (batch, 128, 1) → (batch, 128, 32)
+```
+
+So each scalar `v` becomes the 32-D vector `W · v + b`. Every sample uses the *same* `W` and `b`, so this has only 64 parameters total (32 weights + 32 bias).
+
+### Why a linear layer works here
+
+`nn.Embedding` for discrete tokens is effectively a linear map from a *one-hot* vector to `emb_dim`. But the "vocabulary" here would be uncountably infinite (all real numbers), so a lookup table is impossible. A linear projection generalises naturally: the embedding of sample value `v` is a fixed direction in 32-D space scaled by `v`.
+
+This gives a useful inductive bias:
+- `embed(2.0) = 2 · embed(1.0)` — linear scaling in the sample value maps to linear scaling in the embedding
+- `embed(0) = b` — the bias is the "zero sample" embedding
+- Neighbouring sample values (e.g., `0.51` and `0.52`) produce almost-identical embeddings, rather than unrelated vectors as would be the case with discrete tokenization
+
+### Positional embedding (unchanged from GPT)
+
+```python
+self.pos_emb = nn.Embedding(context_length, emb_dim)   # 128 → 32
+pos_embeds = self.pos_emb(torch.arange(seq_len))
+x = tok_embeds + pos_embeds
+```
+
+Each of the 128 positions has a learned 32-D vector, added to the projected sample. This lets the model know *when* each sample was observed — essential for exploiting periodicity.
+
+### Putting it together
+
+For a single sample value `v` at position `t`, the vector entering the transformer blocks is:
+
+```
+h_t = W · v + b + P[t]
+      └─────┘   └──┘
+      sample    position
+     (content)  (timing)
+```
+
+That's the entire "tokenization and embedding" pipeline — two linear layers, ~4K parameters total. The transformer blocks then do the heavy lifting.
+
+### Alternative: FFT as embedding
+
+An alternative proposed during design was to use a short-time FFT as the embedding front-end:
+1. Slide a small window (e.g., 16 samples) centred on each position.
+2. Compute its FFT → `(window_size//2 + 1)` complex bins → real/imag pairs.
+3. Feed those features through `Linear(n_features, emb_dim)`.
+
+This would give the model local spectral context at each position, without waiting for attention to discover it. For the simple sinusoid problem, raw scalars worked well — but this is a natural extension for harder signals (multi-tone, non-stationary, chirps).
+
 ## Pipeline walkthrough
 
 ### 1. Data generation (`signal_dataset.py`)
