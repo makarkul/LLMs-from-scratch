@@ -49,6 +49,49 @@ i.e., it is an **AR(2)** process. So in principle, only 2 past samples are neede
 
 Total trainable parameters: **~29K** — ~4 orders of magnitude smaller than a typical LLM.
 
+## Choosing `context_length`: the N_FFT analogy
+
+There's a direct parallel between `context_length` in a transformer and `N_FFT` in an OFDM/DFT-based system.
+
+| OFDM / LTE `N_FFT` | This model's `context_length` |
+|---|---|
+| Frequency resolution `Δf = fs / N_FFT` | Resolution of periodicities attention can distinguish |
+| Lowest resolvable tone needs `N_FFT ≥ fs / f_min` | Lowest sinusoid needs `context_length ≥ fs / f_min` |
+| Power of 2 for FFT efficiency | Power of 2 is convenient (not required) |
+
+Our choice of **128** at `fs=100 Hz, f_min=1 Hz` gives `Δf ≈ 0.78 Hz`, which comfortably separates tones in the 1–20 Hz training range. Time span covered: `128 / 100 = 1.28 s`, enough for at least one full period of the slowest sinusoid.
+
+### LTE-style sizing for reference
+
+| Bandwidth | Sampling rate | N_FFT |
+|---|---|---|
+| 1.4 MHz | 1.92 MHz | 128 |
+| 3 MHz | 3.84 MHz | 256 |
+| 5 MHz | 7.68 MHz | 512 |
+| 10 MHz | 15.36 MHz | 1024 |
+| 20 MHz | 30.72 MHz | 2048 |
+
+Notice that `N_FFT / fs ≈ 66.7 µs` stays constant across LTE configurations — the OFDM symbol time. The analogous invariant for us is the **time span** `context_length / fs`.
+
+### When to scale up `context_length`
+
+Following the same DSP logic:
+
+1. **Wider frequency range** — to resolve `f_min = 0.1 Hz`, need `context_length ≥ 1000`.
+2. **Finer frequency discrimination** — closely spaced tones (e.g., 4.9 and 5.1 Hz) need `Δf < 0.2 Hz`, so `context_length > 500`.
+3. **Multi-tone / composite signals** — roughly `context_length ≥ K · fs / Δf_min` for K tones.
+
+### Important caveat
+
+In OFDM, `N_FFT` *exactly* determines the spectral basis — the transform is fixed. In a transformer, `context_length` is the **maximum lag** attention can reach, but attention is **learned and data-dependent**. For a sinusoid (AR(2)), the model typically only uses lags 1 and 2 even when given 128 positions to work with.
+
+So think of `context_length` as the **attention budget**, analogous to `N_FFT`, but the model may use only a small fraction of it.
+
+**Rule of thumb for sizing:**
+- Start with `context_length ≈ fs / f_min`, rounded up (to a power of 2 is fine).
+- Add 2–4× headroom so attention can observe multiple periods (helps generalization and noise rejection).
+- Don't over-provision — attention cost is quadratic in `context_length`.
+
 ## Tokenization and embedding
 
 A key difference from standard LLM transformers: **there is no tokenizer**. The inputs are already continuous floating-point numbers (sample values like `0.823, -0.451, ...`). Each scalar sample *is* a "token" in the sense that it occupies one position in the sequence.
