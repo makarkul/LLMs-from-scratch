@@ -88,6 +88,31 @@ This gives a useful inductive bias:
 - `embed(0) = b` — the bias is the "zero sample" embedding
 - Neighbouring sample values (e.g., `0.51` and `0.52`) produce almost-identical embeddings, rather than unrelated vectors as would be the case with discrete tokenization
 
+### Are the 32 output dimensions redundant?
+
+A natural question: if the projection is `h = W · v + b` with scalar `v`, aren't the 32 output values just 32 scaled copies of the same number? The answer is **no, but they are perfectly correlated**.
+
+For a single scalar `v`:
+
+```
+h[0]  = W[0]  · v + b[0]
+h[1]  = W[1]  · v + b[1]
+...
+h[31] = W[31] · v + b[31]
+```
+
+Each output dimension has its **own learned `W[i]` and `b[i]`** — so the 32 values are different numbers. But as `v` varies, all 32 components move in lockstep along a single line in 32-D space (direction `W`, anchored at `b`). The matrix of embeddings over all possible `v` is **rank 1**.
+
+So why use 32 dimensions at all? The capacity isn't wasted:
+
+1. **Positional embedding breaks the rank-1 structure.** After adding `P[t]`, each position gets a different offset in 32-D space, so the combined (sample, position) representation can live anywhere in 32 dimensions.
+2. **Attention projections mix dimensions.** Q/K/V matrices can rotate and combine the content and positional components differently at each head.
+3. **The FFN is nonlinear.** After a GELU, the representation is no longer an affine function of `v`, so the space is genuinely used.
+
+In short: the 32-D embedding is mostly **housing for positional information and intermediate nonlinear computation**, not for encoding the scalar sample value itself (which only needs 1 dimension).
+
+You could set `emb_dim = 1` and the content part would still work — but positional embeddings would collapse to a scalar offset per time step, attention dot products would be trivial, and the FFN would have almost no capacity. So 32 is a compromise: enough room for the transformer to do useful work, but much smaller than the 768+ dims of a real LLM.
+
 ### Positional embedding (unchanged from GPT)
 
 ```python
