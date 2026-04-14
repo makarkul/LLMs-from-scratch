@@ -2,6 +2,29 @@
 
 Recover a clean sinusoid from noisy observations using a small transformer (~29K parameters) trained as an autoregressive next-sample predictor. This is a bridge between classical DSP (AR/MA models, PACF) and modern sequence modeling.
 
+## TL;DR — design in three parameters
+
+The whole architecture falls out of three DSP-anchored choices:
+
+| Hyperparameter | What it is | DSP anchor | Sizing rule |
+|---|---|---|---|
+| **`n_heads`** | Parallel attention patterns | Number of AR taps / lags that matter | `≈ effective AR order` |
+| **`context_length`** | How far back attention can look | N_FFT — covers the slowest period | `≈ fs / f_min`, rounded up |
+| **`head_dim`** | Discrimination width of each head's Q·K match | Codeword length for position addressing | `≈ 2 · log₂(context_length)` |
+
+`emb_dim = n_heads × head_dim` is forced by construction — not an independent choice.
+
+### Worked example for this project
+
+| Step | Reasoning | Value |
+|---|---|---|
+| Sinusoid = AR(2) → 2 lags matter | Number of AR taps | `n_heads = 2` |
+| `fs = 100 Hz`, `f_min = 1 Hz` → 100 samples/period | Cover ≥ 1 period, round up to power of 2 | `context_length = 128` |
+| 128 positions to discriminate | `2 · log₂(128) = 14`, round up | `head_dim = 16` |
+| Total embedding width | `n_heads × head_dim` | `emb_dim = 32` |
+
+Everything below elaborates on these three choices.
+
 ## Motivation
 
 In classical time-series analysis, we fit an **AR (AutoRegressive)** or **MA (Moving Average)** model by finding filter taps such that the residual is white noise. The number of taps is guided by the **PACF** (Partial AutoCorrelation Function).
