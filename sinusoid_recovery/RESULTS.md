@@ -96,7 +96,81 @@ Non-architectural levers (all three matter):
 
 ---
 
-## 4. Perspective vs. classical DSP
+## 4. FFT-embedding front-end — a much stronger inductive bias
+
+Replacing the scalar `Linear(1, emb_dim)` input projection with a
+**causal sliding-window FFT** changes the picture dramatically. At every
+position `t`, the token now carries the FFT of the last `W=32` samples
+(real + imag bins), then projected to `emb_dim`. Everything downstream
+(positional embedding, attention, FFN, head) is unchanged.
+
+Implementation: [`ts_transformer_fft.py`](ts_transformer_fft.py).
+Comparison driver: [`compare_fft.py`](compare_fft.py).
+
+### 4a. Easy noise (`amp_std=0.2, phase_std=0.1`), 8 epochs, ~30 K params
+
+| Variant | Params | Final MSE | Out SNR | Gain | Train time |
+|---|---|---|---|---|---|
+| Scalar `Linear(1, 32)` | 29,473 | 0.091 | 9.92 dB | **+7.31 dB** | 120 s |
+| **FFT sliding window** | 30,529 | 0.021 | 16.39 dB | **+13.78 dB** | 113 s |
+
+Convergence comparison (val SNR gain by training step):
+
+| Step | Scalar | FFT |
+|---|---|---|
+| 0 | -4.6 | -3.6 |
+| 100 | +0.8 | **+7.8** |
+| 300 | +2.2 | +11.3 |
+| 500 | +4.0 | +12.1 |
+| 700 | +5.5 | +13.0 |
+| 900 | +6.7 | +13.5 |
+
+FFT reaches the scalar model's final result after just 100 steps — roughly
+8× faster wall-clock to a given SNR target.
+
+### 4b. Hard noise (`amp_std=0.8, phase_std=0.4`), 10 epochs, ~30 K params
+
+| Variant | Params | Final MSE | Out SNR | Gain |
+|---|---|---|---|---|
+| Scalar `Linear(1, 32)` | 29,473 | 0.368 | 3.81 dB | **+3.69 dB** |
+| **FFT sliding window** | 30,529 | 0.108 | 9.12 dB | **+9.00 dB** |
+
+Cross-reference: the **scaled scalar model** from §2 — 7× larger (208 K params),
+2× context, 4 heads, 3 layers — only reached **+6.0 dB** at hard noise.
+The FFT model at the original size **beats it by +3 dB**.
+
+### 4c. Why the FFT front-end helps so much
+
+A pure sinusoid is a delta in the frequency domain. The FFT embedding
+hands the transformer a **near-diagonal representation** of the task:
+
+- Each token already encodes the spectrum of the last 32 samples
+- Noisy input becomes a peak-plus-noise-floor in each token
+- The transformer's job collapses to peak-tracking and bin-interpolation
+- It no longer has to rediscover periodicity from raw time-domain samples
+
+Equivalently, the FFT acts as **parallel matched filters** (one per bin)
+before attention even runs — built-in processing gain.
+
+### 4d. Trade-offs
+
+| Aspect | Observation |
+|---|---|
+| Inference overhead | ~160 MACs/sample for the sliding FFT; negligible vs ~50 K MACs inside the blocks |
+| Inductive bias | Strong — ideal for stationary/periodic signals; less safe for chirps or impulsive signals |
+| Window size `W` | Classic STFT trade-off: large `W` = better frequency resolution, small `W` = better time resolution |
+| Convergence | Reaches good performance in ~1 epoch; early-stopping friendly |
+| Interpretability | Tokens are physically meaningful (FFT bins) — attention maps are easier to read |
+
+### 4e. When to choose which embedding
+
+- **FFT embedding** — band-limited / periodic / stationary signals. Huge sample-efficiency and SNR-gain win.
+- **Scalar embedding** — general-purpose default when signal structure is unknown.
+- **Learned `Conv1d(1, emb_dim, kernel_size=W)`** — middle ground: same compute as FFT, no frequency prior, model learns the filterbank.
+
+---
+
+## 5. Perspective vs. classical DSP
 
 At input SNR ≈ 0 dB, a Kalman filter on the known sinusoid model typically
 delivers **+8 to +12 dB** gain at ~30 MACs per output sample. The scaled
@@ -109,7 +183,7 @@ written down (multi-tone, non-Gaussian noise, regime switches, chirps, etc.).
 
 ---
 
-## 5. How to reproduce
+## 6. How to reproduce
 
 ```bash
 # Evaluate the released model across a noise sweep
@@ -117,6 +191,10 @@ python snr_sweep.py --model-path ts_transformer.pth
 
 # Retrain base and scaled configs at hard noise
 python retrain_lowsnr.py --amp-std 0.8 --phase-std 0.4 --epochs 10
+
+# Compare scalar-embedding vs FFT-embedding at matched param budget
+python compare_fft.py --amp-std 0.2 --phase-std 0.1 --epochs 8
+python compare_fft.py --amp-std 0.8 --phase-std 0.4 --epochs 10
 ```
 
 Numbers will vary slightly run-to-run because the validation set is generated

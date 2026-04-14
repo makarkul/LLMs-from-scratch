@@ -492,7 +492,119 @@ for title_t, desc in items:
              desc, size=14, color=DARK)
     y += Inches(1.2)
 
-# ---------- Slide 16: Key takeaway ----------
+# ---------- Slide 16: Low-SNR sweep ----------
+s = prs.slides.add_slide(blank); add_bg(s)
+slide_title(s, "Performance vs Input SNR", "Original 29 K model, easy-noise training")
+add_accent_bar(s, Inches(0.6), Inches(1.65))
+
+data = [
+    ["amp_std", "phase_std", "Input SNR (dB)", "Output SNR (dB)", "Gain (dB)"],
+    ["0.10", "0.05", "3.05", "17.31", "+14.26"],
+    ["0.20", "0.10", "2.85", "14.65", "+11.80  (training)"],
+    ["0.40", "0.20", "2.14", "9.61", "+7.47"],
+    ["0.60", "0.30", "1.17", "5.90", "+4.72"],
+    ["0.80", "0.40", "0.12", "3.26", "+3.14"],
+    ["1.00", "0.50", "-0.93", "1.37", "+2.30"],
+]
+add_table(s, Inches(0.85), Inches(1.95), Inches(11.6), Inches(3.8), data,
+          col_widths=[2, 2, 3, 3, 3], font_size=13)
+add_text(s, Inches(0.85), Inches(6.0), Inches(11.6), Inches(1.0),
+         "Gain collapses out-of-distribution. Two effects: harder physical task + train/test mismatch.",
+         size=14, color=MUTED)
+
+# ---------- Slide 17: Retrain comparison at hard noise ----------
+s = prs.slides.add_slide(blank); add_bg(s)
+slide_title(s, "Tweaking for Low SNR", "Retrain at hard noise (input SNR ≈ 0 dB)")
+add_accent_bar(s, Inches(0.6), Inches(1.65))
+
+data = [
+    ["Scenario", "Arch (ctx / emb / heads / layers)", "Params", "Gain (dB)"],
+    ["Original (no retrain)", "128 / 32 / 2 / 2", "29 K", "+3.14"],
+    ["Same arch, retrained", "128 / 32 / 2 / 2", "29 K", "+3.69"],
+    ["Scaled arch, retrained", "256 / 72 / 4 / 3", "208 K", "+6.00"],
+]
+add_table(s, Inches(0.85), Inches(1.95), Inches(11.6), Inches(2.4), data,
+          col_widths=[3.5, 4.5, 1.5, 2.5], font_size=13)
+
+add_text(s, Inches(0.85), Inches(4.5), Inches(11.6), Inches(0.5),
+         "DSP-grounded tuning rules at low SNR",
+         size=18, bold=True, color=TEAL, font=HDR_FONT)
+add_text(s, Inches(0.85), Inches(5.0), Inches(11.6), Inches(2.3),
+         "• context_length ↑   — extra √k noise averaging\n"
+         "• n_heads ↑              — add smoothing/MA heads beyond AR taps\n"
+         "• n_layers ↑              — depth for iterative denoising refinement\n"
+         "• head_dim follows 2·log₂(context_length); emb_dim falls out\n"
+         "• Match training noise to deployment noise; use mixed-σ curriculum",
+         size=14)
+
+# ---------- Slide 18: FFT embedding head-to-head ----------
+s = prs.slides.add_slide(blank); add_bg(s)
+slide_title(s, "FFT Embedding — Head-to-Head", "Replace Linear(1, 32) with sliding-window FFT")
+add_accent_bar(s, Inches(0.6), Inches(1.65))
+
+add_text(s, Inches(0.85), Inches(1.9), Inches(11.6), Inches(0.5),
+         "Both models ~30 K params; only the input embedding differs",
+         size=14, color=MUTED)
+
+# Easy noise table
+add_text(s, Inches(0.85), Inches(2.5), Inches(11.6), Inches(0.4),
+         "Easy noise  (amp_std=0.2, phase_std=0.1) — 8 epochs",
+         size=15, bold=True, color=TEAL, font=HDR_FONT)
+data_easy = [
+    ["Variant", "Params", "Out SNR", "Gain"],
+    ["Scalar Linear(1, 32)", "29,473", "9.92 dB", "+7.31 dB"],
+    ["FFT sliding window", "30,529", "16.39 dB", "+13.78 dB"],
+]
+add_table(s, Inches(0.85), Inches(2.95), Inches(11.6), Inches(1.3), data_easy,
+          col_widths=[4, 2, 3, 3], font_size=13)
+
+# Hard noise table
+add_text(s, Inches(0.85), Inches(4.5), Inches(11.6), Inches(0.4),
+         "Hard noise  (amp_std=0.8, phase_std=0.4) — 10 epochs",
+         size=15, bold=True, color=TEAL, font=HDR_FONT)
+data_hard = [
+    ["Variant", "Params", "Out SNR", "Gain"],
+    ["Scalar Linear(1, 32)", "29,473", "3.81 dB", "+3.69 dB"],
+    ["FFT sliding window", "30,529", "9.12 dB", "+9.00 dB"],
+    ["Scalar SCALED (208 K)", "207,577", "5.85 dB", "+6.00 dB"],
+]
+add_table(s, Inches(0.85), Inches(4.95), Inches(11.6), Inches(1.7), data_hard,
+          col_widths=[4, 2, 3, 3], font_size=13)
+
+add_text(s, Inches(0.85), Inches(6.85), Inches(11.6), Inches(0.5),
+         "FFT at 30 K beats the scaled scalar model at 208 K by +3 dB.",
+         size=14, bold=True, color=DEEP, font=HDR_FONT)
+
+# ---------- Slide 19: Why FFT helps ----------
+s = prs.slides.add_slide(blank); add_bg(s)
+slide_title(s, "Why the FFT Front-End Wins", "A near-diagonal representation of the task")
+add_accent_bar(s, Inches(0.6), Inches(1.65))
+
+add_text(s, Inches(0.85), Inches(1.9), Inches(11.6), Inches(0.5),
+         "Token at position t = Linear( rfft( x[t-W+1 : t+1] ) ),  W = 32",
+         size=15, color=DARK, font=BODY_FONT)
+
+add_text(s, Inches(0.85), Inches(2.7), Inches(11.6), Inches(0.5),
+         "What changes for the model",
+         size=18, bold=True, color=TEAL, font=HDR_FONT)
+add_text(s, Inches(0.85), Inches(3.2), Inches(11.6), Inches(2.3),
+         "• A pure sinusoid is a delta in the frequency domain\n"
+         "• Each token already encodes the local spectrum of the last 32 samples\n"
+         "• Noisy input becomes a peak-plus-noise-floor in each token\n"
+         "• The transformer's job collapses to peak-tracking and bin interpolation\n"
+         "• Equivalent to many parallel matched filters before attention even runs",
+         size=14)
+
+add_text(s, Inches(0.85), Inches(5.6), Inches(11.6), Inches(0.5),
+         "Trade-offs",
+         size=18, bold=True, color=TEAL, font=HDR_FONT)
+add_text(s, Inches(0.85), Inches(6.1), Inches(11.6), Inches(1.3),
+         "• Inference overhead of sliding FFT is negligible (~160 MACs/sample)\n"
+         "• Strong inductive bias — best for stationary/periodic signals\n"
+         "• Window size W is a classical STFT trade-off (frequency vs time resolution)",
+         size=14)
+
+# ---------- Slide 20: Key takeaway ----------
 s = prs.slides.add_slide(blank); add_bg(s, MID)
 band = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, Inches(0.4), SH)
 band.fill.solid(); band.fill.fore_color.rgb = ACCENT; band.line.fill.background()
