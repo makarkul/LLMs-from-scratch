@@ -112,8 +112,6 @@ def add_table(slide, left, top, width, height, data, header=True,
 s = prs.slides.add_slide(blank)
 add_bg(s, MID)
 # Side accent band
-band = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, Inches(0.4), SH)
-band.fill.solid(); band.fill.fore_color.rgb = ACCENT; band.line.fill.background()
 
 add_text(s, Inches(1.0), Inches(2.2), Inches(11.5), Inches(1.6),
          "Sinusoid Recovery with a Tiny Transformer",
@@ -128,7 +126,6 @@ add_text(s, Inches(1.0), Inches(5.6), Inches(11), Inches(0.5),
 # ---------- Slide 2: Motivation ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Motivation", "Classical DSP and transformers — the same job?")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 left_col = Inches(0.85); col_w = Inches(5.9)
 add_text(s, left_col, Inches(1.7), col_w, Inches(0.5),
@@ -156,7 +153,6 @@ add_text(s, Inches(0.85), Inches(6.1), Inches(11.5), Inches(0.7),
 # ---------- Slide 3: Key DSP fact ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Key DSP Fact", "A sinusoid is exactly an AR(2) process")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 eq_box = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.5), Inches(2.3),
                              Inches(10.3), Inches(1.6))
@@ -178,7 +174,6 @@ add_text(s, Inches(0.85), Inches(4.8), Inches(11.5), Inches(2.5),
 # ---------- Slide 4: Problem setup ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Problem Setup", "Noisy sinusoid → clean next-sample prediction")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 data = [
     ["Parameter", "Value / Range", "Role"],
@@ -200,7 +195,6 @@ add_text(s, Inches(0.85), Inches(6.5), Inches(11.5), Inches(0.7),
 # ---------- Slide 5: Architecture ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Architecture", "Scalar in → embed → 2 transformer blocks → scalar out")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 # Pipeline boxes
 stages = [
@@ -248,7 +242,6 @@ add_text(s, Inches(0.85), Inches(5.1), Inches(11.5), Inches(2),
 # ---------- Slide 6: TL;DR table ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "The TL;DR Design Table", "Three DSP-anchored hyperparameters drive everything")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 data = [
     ["Hyperparameter", "What it is", "DSP anchor", "Sizing rule", "This project"],
@@ -273,7 +266,6 @@ add_text(s, Inches(1.0), Inches(6.0), Inches(11.3), Inches(0.9),
 # ---------- Slide 7: Tokenization ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Tokenization Is Different", "No tokenizer, no vocab_size")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 data = [
     ["Aspect", "GPT (text)", "This model (signals)"],
@@ -294,7 +286,6 @@ add_text(s, Inches(0.85), Inches(5.8), Inches(11.5), Inches(1.5),
 # ---------- Slide 8: Is 32-D wasted? ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Are the 32 Dimensions Wasted?", "Why a scalar gets a 32-D embedding")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 add_text(s, Inches(0.85), Inches(1.9), Inches(11.6), Inches(0.6),
          "Linear(1, 32) produces  e = v · w  for scalar value v and a fixed 32-D vector w.",
@@ -321,7 +312,6 @@ add_text(s, Inches(0.85), Inches(5.4), Inches(11.6), Inches(1.7),
 # ---------- Slide 9: N_FFT analogy ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "context_length ≈ N_FFT", "Cover the slowest period you care about")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 add_text(s, Inches(0.85), Inches(1.85), Inches(11.6), Inches(0.5),
          "Invariant:  N_FFT / fs  ≈  1 / f_min",
@@ -345,7 +335,6 @@ add_text(s, Inches(0.85), Inches(6.4), Inches(11.6), Inches(0.7),
 # ---------- Slide 10: n_heads = AR order ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "n_heads = Lags That Matter", "One head per pattern to attend to")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 add_text(s, Inches(0.85), Inches(1.9), Inches(11.6), Inches(0.5),
          "Heuristic",
@@ -368,7 +357,6 @@ add_text(s, Inches(0.85), Inches(4.5), Inches(11.6), Inches(2.2),
 # ---------- Slide 11: head_dim as channel coding ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "head_dim = Channel Coding", "Q·K match = matched-filter detection")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 add_text(s, Inches(0.85), Inches(1.85), Inches(11.6), Inches(1.6),
          "head_dim is the dimension of the space Q and K live in.\n"
@@ -392,7 +380,6 @@ add_text(s, Inches(0.85), Inches(6.3), Inches(11.6), Inches(0.6),
 # ---------- Slide 12: Channel coding analogy (deeper) ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Why the Analogy Holds", "Scaling, spreading, processing gain")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 add_text(s, Inches(0.85), Inches(1.9), Inches(11.6), Inches(0.5),
          "Attention formula",
@@ -415,7 +402,6 @@ add_text(s, Inches(0.85), Inches(3.8), Inches(11.6), Inches(3.3),
 # ---------- Slide 13: Shannon sizing ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Shannon Sizing Check", "Does head_dim = 16 meet the information bound?")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 data = [
     ["Quantity", "Value", "Note"],
@@ -437,7 +423,6 @@ add_text(s, Inches(0.85), Inches(6.8), Inches(11.6), Inches(0.5),
 # ---------- Slide 14: Training ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Training", "30 epochs on CPU")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 add_text(s, Inches(0.85), Inches(1.9), Inches(5.8), Inches(0.5),
          "Recipe", size=18, bold=True, color=TEAL, font=HDR_FONT)
@@ -473,7 +458,6 @@ add_text(s, Inches(0.85), Inches(6.2), Inches(11.6), Inches(0.9),
 # ---------- Slide 15: Analysis ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Analysis Diagnostics", "Does the model really learn AR(2)?")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 items = [
     ("Attention heatmaps", "Peaks at lag 1 and lag 2 — matches AR(2) tap structure"),
@@ -495,7 +479,6 @@ for title_t, desc in items:
 # ---------- Slide 16: Low-SNR sweep ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Performance vs Input SNR", "Original 29 K model, easy-noise training")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 data = [
     ["amp_std", "phase_std", "Input SNR (dB)", "Output SNR (dB)", "Gain (dB)"],
@@ -515,7 +498,6 @@ add_text(s, Inches(0.85), Inches(6.0), Inches(11.6), Inches(1.0),
 # ---------- Slide 17: Retrain comparison at hard noise ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Tweaking for Low SNR", "Retrain at hard noise (input SNR ≈ 0 dB)")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 data = [
     ["Scenario", "Arch (ctx / emb / heads / layers)", "Params", "Gain (dB)"],
@@ -540,7 +522,6 @@ add_text(s, Inches(0.85), Inches(5.0), Inches(11.6), Inches(2.3),
 # ---------- Slide 18: FFT embedding head-to-head ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "FFT Embedding — Head-to-Head", "Replace Linear(1, 32) with sliding-window FFT")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 add_text(s, Inches(0.85), Inches(1.9), Inches(11.6), Inches(0.5),
          "Both models ~30 K params; only the input embedding differs",
@@ -578,7 +559,6 @@ add_text(s, Inches(0.85), Inches(6.85), Inches(11.6), Inches(0.5),
 # ---------- Slide 19: Why FFT helps ----------
 s = prs.slides.add_slide(blank); add_bg(s)
 slide_title(s, "Why the FFT Front-End Wins", "A near-diagonal representation of the task")
-add_accent_bar(s, Inches(0.6), Inches(1.65))
 
 add_text(s, Inches(0.85), Inches(1.9), Inches(11.6), Inches(0.5),
          "Token at position t = Linear( rfft( x[t-W+1 : t+1] ) ),  W = 32",
@@ -606,8 +586,6 @@ add_text(s, Inches(0.85), Inches(6.1), Inches(11.6), Inches(1.3),
 
 # ---------- Slide 20: Key takeaway ----------
 s = prs.slides.add_slide(blank); add_bg(s, MID)
-band = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, Inches(0.4), SH)
-band.fill.solid(); band.fill.fore_color.rgb = ACCENT; band.line.fill.background()
 
 add_text(s, Inches(1.0), Inches(0.8), Inches(11.5), Inches(1.0),
          "Key Takeaway", size=38, bold=True, color=LIGHT, font=HDR_FONT)
