@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+checkpoints_smoke/
+figures_hi/
+figures_lo/
